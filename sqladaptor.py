@@ -9,7 +9,7 @@ try:
     f = open(DATABASE_USER + '.passwd', 'r')
     passwd = f.read()[:-1]
 except IOError:
-    print "Cannot open database password file. Password file should be named <db-user>.passwd"
+    print("Cannot open database password file. Password file should be named <db-user>.passwd")
 else:
     f.close()
 db = pw.MySQLDatabase('shares_db', host='127.0.0.1', user=DATABASE_USER, password=passwd)

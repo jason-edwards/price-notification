@@ -32,14 +32,14 @@ class DataGrabber():
 
     def run(self):
         asx_codes_array = ["anz", "cba", "wbc", "cim"]
-        print "Starting datagrab thread loop. This message should only appear once."
+        print("Starting datagrab thread loop. This message should only appear once.")
         logging.debug("DataGrabber.run(): Starting loop")
         while self.keep_running:
             seconds = 0
             for asx_code in asx_codes_array:
-                print "Executing datagrab(%s)" % asx_code
+                print("Executing datagrab(%s)" % asx_code)
                 data_grabber.price_grab(asx_code)
-            print "Sleeping."
+            print("Sleeping.")
             while seconds < DATAGRAB_SLEEP_TIME and self.keep_running:
                 sleep(1)
                 seconds += 1
@@ -59,9 +59,9 @@ class DataGrabber():
                 continue
 
         request_time = time() - start_time
-        print "\tTook %.2f seconds to get response." % request_time
+        print("\tTook %.2f seconds to get response." % request_time)
 
-        print "\t%s\t%s" % (code, current_price)
+        print("\t%s\t%s" % (code, current_price))
 
         price_log = PriceLog(
             asx_code=code,
@@ -72,10 +72,10 @@ class DataGrabber():
         try:
             price_log.save()
         except:
-            print "\tError saving to database."
+            print("\tError saving to database.")
 
         finish_time = time() - start_time
-        print "\tSaved in database. Total time: %.2f" % finish_time
+        print("\tSaved in database. Total time: %.2f" % finish_time)
         return 0
 
     def historic_data_grab(self, code):
@@ -90,14 +90,14 @@ class DataGrabber():
             file_url = (soup.find(id=search_id_string)
                         .find_all('a', href=re.compile('^http://real-chart.finance'))[0].get('href'))
         except AttributeError:
-            print "Attribute Error: bs4.find() could no1t retrieve text for %s." % code
-            print "Check the status of the webpage."
+            print("Attribute Error: bs4.find() could no1t retrieve text for %s." % code)
+            print("Check the status of the webpage.")
             return 404
 
         csv_file = urllib2.urlopen(file_url)
         reader = csv.reader(csv_file)
 
-        print "%s history read." % code
+        print("%s history read." % code)
         data_array = []
 
         # Construct data_array to contain dictionary of price_log data.
@@ -134,8 +134,8 @@ class DataGrabber():
         if len(insert_array) != 0:
             PriceLog.insert_many(insert_array).execute()
 
-        print len(insert_array), "items inserted"
-        print len(skipped_array), "items skipped for", code
+        print(len(insert_array), "items inserted")
+        print(len(skipped_array), "items skipped for", code)
         return 0
 
 
@@ -150,35 +150,35 @@ if __name__ == "__main__":
     if argc == 2:
         daemon = MyDaemon('/tmp/datagrabber.pid')
         if 'start' == sys.argv[1]:
-            print "Starting as daemon."
+            print("Starting as daemon.")
             logging.debug("daemon.start()")
             daemon.start()
         elif 'stop' == sys.argv[1]:
             daemon.stop()
         elif 'restart' == sys.argv[1]:
-            print "Restarting as daemon."
+            print("Restarting as daemon.")
             daemon.restart()
         elif 'history' == sys.argv[1]:
-            print "usage: %s history code" % sys.argv[0]
+            print("usage: %s history code" % sys.argv[0])
             sys.exit(2)
         else:
-            print "usage: %s start|stop|restart\n" % sys.argv[0]
+            print("usage: %s start|stop|restart\n" % sys.argv[0])
             sys.exit(2)
     elif argc == 3:
         if 'history' == sys.argv[1]:
             data_grabber = DataGrabber()
             result = data_grabber.historic_data_grab(sys.argv[2])
         else:
-            print "Unknown argument %s" % sys.argv[1]
-            print "usage: history <asx_code>"
+            print("Unknown argument %s" % sys.argv[1])
+            print("usage: history <asx_code>")
 
         if result == 0:
-            print "Database populated with historic data for %s" % sys.argv[2]
+            print("Database populated with historic data for %s" % sys.argv[2])
         elif result == 404:
-            print "Could not find file for \'%s\'." % sys.argv[2]
-            print "Check if code is valid."
+            print("Could not find file for \'%s\'." % sys.argv[2])
+            print("Check if code is valid.")
     else:
-        print "Not running as daemon!"
+        print("Not running as daemon!")
         data_grabber.run()
 
-print "Exiting"
+print("Exiting")
