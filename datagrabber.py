@@ -3,8 +3,8 @@ __author__ = 'jason'
 from selenium import webdriver
 import requests as req
 from daemon import Daemon
-from datasource_yahoofinance import DataSource_YahooFinance
-from datasource_asx import DataSource_ASX
+from datasourceyahoofinance import DatasourceYahoofinance
+from datasourceasx import DataSourceASX
 import platform
 import datetime
 import sys
@@ -49,7 +49,7 @@ class DataGrabber():
     def price_grab(self, code):
         start_time = time()
 
-        url_container_list = [DataSource_ASX(asx_code=code), DataSource_YahooFinance(asx_code=code)]
+        url_container_list = [DataSourceASX(asx_code=code), DatasourceYahoofinance(asx_code=code)]
 
         for url_container in url_container_list:
             try:

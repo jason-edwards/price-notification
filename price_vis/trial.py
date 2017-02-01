@@ -15,11 +15,11 @@ try:
     f = open(DATABASE_USER + '.passwd', 'r')
     passwd = f.read()[:-1]
 except IOError:
-    print "Cannot open database password file. Password file should be named <db-user>.passwd"
+    print("Cannot open database password file. Password file should be named <db-user>.passwd")
 else:
     f.close()
-db = pw.MySQLDatabase('shares_db', host='127.0.0.1', user=DATABASE_USER, password=passwd)
 
+db = pw.MySQLDatabase('shares_db', host='127.0.0.1', user=DATABASE_USER, password=passwd)
 
 class BaseModel(pw.Model):
     class Meta:
@@ -38,20 +38,20 @@ class DataGrabber():
         startTime = time()
         current_price = 0
         url_list = ["http://search.asx.com.au/s/search.html?query=" + code + "&collection=asx-meta&profile=web", "https://au.finance.yahoo.com/q/pr?s=" + code + ".AX"]
-        print "\tGetting asx price."
+        print("\tGetting asx price.")
 
         for url in url_list:
             try:
                 self.browser.get(url)
                 break
             except:
-                print "Error getting URL."
+                print("Error getting URL.")
         self.browser.execute_script("return document.cookie")
         self.browser.execute_script("return navigator.userAgent")
         html_source = self.browser.page_source
 
         requestTime = time() - startTime
-        print "\tTook %.2f seconds to get response." % requestTime
+        print("\tTook %.2f seconds to get response." % requestTime)
 
         soup = BeautifulSoup(html_source)
 
@@ -60,13 +60,13 @@ class DataGrabber():
                 prices_table = soup.find("table").find("tbody")
                 current_price = prices_table.find_all("td")[0].get_text()
             except AttributeError:
-                print "\tUnable to scrape this time."
+                print("\tUnable to scrape this time.")
                 return 1
         elif url == url_list[1]:
             search_id_string = "yfs_l84_" + code + ".ax"
             current_price = soup.find(id=search_id_string).get_text()
 
-        print "\t" + code + "\t" + current_price
+        print("\t" + code + "\t" + current_price)
 
         price_log = PriceLog(
             asx_code=code,
@@ -77,10 +77,10 @@ class DataGrabber():
         try:
             price_log.save()
         except:
-            print "\tError saving to database."
+            print("\tError saving to database.")
 
         finishTime = time() - startTime
-        print "\tSaved in database. Total time: %.2f" % finishTime
+        print("\tSaved in database. Total time: %.2f" % finishTime)
         return 0
 
     def historic_data_grab(self, code):
@@ -95,14 +95,14 @@ class DataGrabber():
             file_url = (soup.find(id=search_id_string)
                         .find_all('a', href=re.compile('^http://real-chart.finance'))[0].get('href'))
         except AttributeError:
-            print "Attribute Error: bs4.find() could not retrieve text for %s." % code
-            print "Check the status of the webpage."
+            print("Attribute Error: bs4.find() could not retrieve text for %s." % code)
+            print("Check the status of the webpage.")
             return 404
 
         csv_file = urllib2.urlopen(file_url)
         reader = csv.reader(csv_file)
 
-        print "%s history read." % code
+        print("%s history read." % code)
         data_array = []
 
         # Construct data_array to contain dictionary of price_log data.
@@ -137,8 +137,8 @@ class DataGrabber():
         if len(insert_array) != 0:
             PriceLog.insert_many(insert_array).execute()
 
-        print len(insert_array), "items inserted"
-        print len(skipped_array), "items skipped for", code
+        print(len(insert_array), "items inserted")
+        print(len(skipped_array), "items skipped for", code)
         return 0
     
 

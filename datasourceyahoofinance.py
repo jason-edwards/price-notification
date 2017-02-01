@@ -4,7 +4,7 @@ from datasource import DataSource
 import re
 
 
-class DataSource_YahooFinance(DataSource):
+class DatasourceYahoofinance(DataSource):
     def __init__(self, asx_code):
         DataSource.__init__(self, asx_code=asx_code, javascript=False)
 
@@ -27,12 +27,11 @@ class DataSource_YahooFinance(DataSource):
             file_url = (soup.find(id=search_id_string)
                         .find_all('a', href=re.compile('^http://real-chart.finance'))[0].get('href'))
         except AttributeError:
-            print "Attribute Error: bs4.find() could no1t retrieve text for %s." % self.asx_code
-            print "Check the status of the web page."
+            print("Attribute Error: bs4.find() could no1t retrieve text for %s." % self.asx_code)
+            print("Check the status of the web page.")
             return None
 
         return file_url
 
     def get_key_statistics(self):
         pass
-    

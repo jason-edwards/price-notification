@@ -3,7 +3,7 @@ __author__ = 'jason'
 from datasource import DataSource
 
 
-class DataSource_ASX(DataSource):
+class DataSourceASX(DataSource):
     def __init__(self, asx_code):
         DataSource.__init__(self, asx_code=asx_code, javascript=True)
 
@@ -16,7 +16,7 @@ class DataSource_ASX(DataSource):
             prices_table = soup.find("table").find("tbody")
             current_price = prices_table.find_all("td")[0].get_text()
         except AttributeError:
-            print "\tUnable to scrape this time."
+            print("\tUnable to scrape this time.")
             return None
 
         return current_price

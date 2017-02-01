@@ -1,12 +1,13 @@
 __author__ = 'jason'
 
-from trial import DBConnector, DataGrabber
+from datagrabber import DataGrabber
+from sqladaptor import DBConnector
 from daemon import Daemon
-import datetime
 import threading
-import platform
 import time
 import sys
+#import datetime
+#import platform
 
 DATAGRAB_SLEEP_TIME = 10 # seconds between each round of data grabbing
 datagrab_thread = None
@@ -17,12 +18,12 @@ class DataGrabThread(threading.Thread):
         threading.Thread.__init__(self)
         self.keep_running = True
 
-
     def run(self):
         asx_codes_array = ["anz", "cba", "wbc", "cim"]
         #asx_codes_array = ["cba"]
         data_grabber = DataGrabber()
         print("Starting datagrab thread loop. This message should only appear once.")
+        print(self.keep_running)
         while self.keep_running:
             seconds = 0
             for asx_code in asx_codes_array:

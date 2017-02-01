@@ -1,11 +1,13 @@
-from trial import DBConnector, DataGrabber
-from flask import Flask, render_template, request, redirect
-from daemon import Daemon
 import datetime
 import threading
 import platform
 import time
 import sys
+
+from price_vis.trial import DBConnector, DataGrabber
+from flask import Flask, render_template, redirect
+from daemon import Daemon
+
 
 WEB_PORT = 5000 if platform.system() == "Darwin" else 80
 DATAGRAB_SLEEP_TIME = 10 # seconds between each round of data grabbing
