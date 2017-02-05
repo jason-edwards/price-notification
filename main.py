@@ -10,7 +10,7 @@ import sys
 #import platform
 
 DATAGRAB_SLEEP_TIME = 10 # seconds between each round of data grabbing
-datagrab_thread = None
+datagrab_thread= None
 
 class DataGrabThread(threading.Thread):
 
@@ -19,6 +19,7 @@ class DataGrabThread(threading.Thread):
         self.keep_running = True
 
     def run(self):
+
         asx_codes_array = ["anz", "cba", "wbc", "cim"]
         #asx_codes_array = ["cba"]
         data_grabber = DataGrabber()
@@ -38,6 +39,7 @@ class DataGrabThread(threading.Thread):
 
 class MyDaemon(Daemon):
     def run(self):
+        global datagrab_thread
         datagrab_thread = DataGrabThread()
         datagrab_thread.start()
         app.run(host='0.0.0.0', port=WEB_PORT)
@@ -82,9 +84,10 @@ if __name__ == "__main__":
         datagrab_thread = DataGrabThread()
         datagrab_thread.start()
 
+
     if datagrab_thread is not None:
         print("Waiting for datagrab thread")
-        datagrab_thread.keep_running = False
+        #datagrab_thread.keep_running = False
         datagrab_thread.join()
 
 print("Exiting")

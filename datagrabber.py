@@ -9,7 +9,6 @@ import platform
 import datetime
 import sys
 import re
-import urllib2
 import csv
 from time import time, sleep
 from bs4 import BeautifulSoup
@@ -46,7 +45,7 @@ class DataGrabber():
         logging.debug("daemon.cleanup()")
         data_grabber.cleanup()
 
-    def price_grab(self, code):
+    def data_grab(self, code):
         start_time = time()
 
         url_container_list = [DataSourceASX(asx_code=code), DatasourceYahoofinance(asx_code=code)]
@@ -94,7 +93,8 @@ class DataGrabber():
             print("Check the status of the webpage.")
             return 404
 
-        csv_file = urllib2.urlopen(file_url)
+        #csv_file = urllib2.urlopen(file_url)
+        csv_file = req.get(file_url)
         reader = csv.reader(csv_file)
 
         print("%s history read." % code)
@@ -143,8 +143,9 @@ class MyDaemon(Daemon):
     def run(self):
         data_grabber.run()
 
-data_grabber = DataGrabber()
+
 if __name__ == "__main__":
+    data_grabber = DataGrabber()
     argc = len(sys.argv)
 
     if argc == 2:
@@ -181,4 +182,4 @@ if __name__ == "__main__":
         print("Not running as daemon!")
         data_grabber.run()
 
-print("Exiting")
+    print("Exiting")
