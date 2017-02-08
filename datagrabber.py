@@ -26,6 +26,7 @@ class DataGrabber():
         self.browser = webdriver.PhantomJS('./phantomjs') if platform.system() != "Darwin" else webdriver.PhantomJS()
         self.keep_running = True
 
+
     def cleanup(self):
         self.browser.close()
 

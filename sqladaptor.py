@@ -12,7 +12,12 @@ except IOError:
     print("Cannot open database password file. Password file should be named <db-user>.passwd")
 else:
     f.close()
-db = pw.MySQLDatabase('shares_db', host='127.0.0.1', user=DATABASE_USER, password=passwd)
+
+try:
+    db = pw.MySQLDatabase('shares_db', host='52.24.137.82', user=DATABASE_USER, password=passwd)
+    db.connect()
+except Exception as e:
+    print(e)
 
 
 class BaseModel(pw.Model):
