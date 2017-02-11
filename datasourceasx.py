@@ -13,6 +13,7 @@ class DataSourceASX(DataSource):
         soup = self._get_soup(url=url)
 
         try:
+
             prices_table = soup.find("table").find("tbody")
             current_price = prices_table.find_all("td")[0].get_text()
         except AttributeError:

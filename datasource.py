@@ -1,6 +1,9 @@
 __author__ = 'jason'
 
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import platform
 import requests as req
 from bs4 import BeautifulSoup
@@ -25,6 +28,10 @@ class DataSource():
         if self.javascript_enabled:
             try:
                 self.browser.get(url)
+                WebDriverWait(self.browser, 10).until(
+                    EC.presence_of_element_located((By.ID, "aaaaacompany_details_widget_form:company_details_widget_results"))
+                )
+                print("Finished waiting")
             except:
                 raise LookupError()
 
@@ -35,7 +42,7 @@ class DataSource():
             page = req.get(url)
             html_source = page.text
 
-        return BeautifulSoup(html_source)
+        return BeautifulSoup(html_source, "html.parser")
 
     def get_price(self):
         """

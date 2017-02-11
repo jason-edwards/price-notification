@@ -50,12 +50,16 @@ class DataGrabber():
         start_time = time()
 
         url_container_list = [DataSourceASX(asx_code=code), DatasourceYahoofinance(asx_code=code)]
-
+        print("In data_grab")
         for url_container in url_container_list:
             try:
                 current_price = url_container.get_price()
-                break
-            except LookupError:
+                if current_price is None:
+                    continue
+                else:
+                    break
+            except LookupError as e:
+                print("Failed to query a URL: %s" % (e))
                 continue
 
         request_time = time() - start_time
@@ -71,7 +75,8 @@ class DataGrabber():
 
         try:
             price_log.save()
-        except:
+        except Exception as e:
+            print(e)
             print("\tError saving to database.")
 
         finish_time = time() - start_time

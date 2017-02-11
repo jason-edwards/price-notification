@@ -28,7 +28,7 @@ class DataGrabThread(threading.Thread):
         while self.keep_running:
             seconds = 0
             for asx_code in asx_codes_array:
-                print("Executing datagrab(" + asx_code + ")")
+                print("Executing datagrab(" + asx_code + ") in main")
                 data_grabber.data_grab(asx_code)
             print("Sleeping.")
             while seconds < DATAGRAB_SLEEP_TIME and self.keep_running:
