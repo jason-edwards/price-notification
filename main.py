@@ -9,8 +9,8 @@ import sys
 #import datetime
 #import platform
 
-DATAGRAB_SLEEP_TIME = 10 # seconds between each round of data grabbing
-datagrab_thread= None
+DATAGRAB_SLEEP_TIME = 10  # seconds between each round of data grabbing
+datagrab_thread = None
 
 class DataGrabThread(threading.Thread):
 

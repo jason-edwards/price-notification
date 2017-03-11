@@ -5,9 +5,12 @@ import datetime
 from sqladaptor import PriceLog, DBConnector
 
 MAIL_USER = 'jedwards'
+MAIL_DOMAIN = '@live.com.au'
 
 class EmailConnector():
     def __init__(self):
+        db_instance = DBConnector()
+
         try:
             f = open(MAIL_USER + '.passwd', 'r')
             passwd = f.read()[:-1]
@@ -21,7 +24,24 @@ class EmailConnector():
         mail_server.ehlo()
         mail_server.starttls()
         mail_server.ehlo()
-        mail_server.login("jedwards@live.com.au", password=passwd)
+        mail_server.login(MAIL_USER + MAIL_DOMAIN, password=passwd)
+
+        query_result = db_instance.get_pricelog_record(code="cba")
+
+        pricelog = PriceLog(id=query_result.id,
+                            asx_code=query_result.asx_code,
+                            price=query_result.price,
+                            timestamp=query_result.timestamp)
+
+        message = "ID: " + str(pricelog.id) + \
+                  "\r\nASX Code: " + pricelog.asx_code + \
+                  "\r\nPrice: " + str(pricelog.price) + \
+                  "\r\nTimestamp: " + str(pricelog.timestamp)
+
+        print(message)
+
+        mail_server.sendmail(MAIL_USER + MAIL_DOMAIN, "shalvin.deo@live.com", message)
+
         mail_server.close()
 
 if __name__ == "__main__":

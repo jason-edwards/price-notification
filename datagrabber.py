@@ -89,7 +89,7 @@ class DataGrabber():
         page = req.get(url_string)
         html_source = page.text
 
-        soup = BeautifulSoup(html_source)
+        soup = BeautifulSoup(html_source, "html.parser")
         search_id_string = 'rightcol'
         try:
             file_url = (soup.find(id=search_id_string)
@@ -100,23 +100,20 @@ class DataGrabber():
             return 404
 
         #csv_file = urllib2.urlopen(file_url)
-        csv_file = req.get(file_url)
-        reader = csv.reader(csv_file)
+        download = req.get(file_url)
+        decoded_content = download.content.decode('utf-8')
 
         print("%s history read." % code)
         data_array = []
 
         # Construct data_array to contain dictionary of price_log data.
-        reader.next()
-        for row in reader:
+        reader = csv.reader(decoded_content.splitlines(), delimiter=',')
+        next(reader)
+        price_list = list(reader)
+
+
+        for row in price_list:
             # Columns are - Date, Open, High, Low, Close, Volume, Adjusted Close
-
-            # Add in database for the price at open. The time is 10:00:00 AEST -> 00:00:00 UTC
-            date_string = row[0] + " 00:00:00"
-            timestamp = datetime.datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
-
-            data = {'asx_code': code, 'price': row[1], 'timestamp': timestamp}
-            data_array.append(data)
 
             # Add in database for the price at close. The time is 16:00:00 AEST -> 06:00:00 UTC
             date_string = row[0] + " 06:00:00"
@@ -125,17 +122,38 @@ class DataGrabber():
             data = {'asx_code': code, 'price': row[4], 'timestamp': timestamp}
             data_array.append(data)
 
+            # Add in database for the price at open. The time is 10:00:00 AEST -> 00:00:00 UTC
+            date_string = row[0] + " 00:00:00"
+            timestamp = datetime.datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
+
+            data = {'asx_code': code, 'price': row[1], 'timestamp': timestamp}
+            data_array.append(data)
+
+        max_date = data_array[0]['timestamp']
+        min_date = data_array[-1]['timestamp']
+
         db_instance = DBConnector()
-        insert_array = []
-        skipped_array = []
+        print("Connected to database")
+
         for element in data_array:
             query = db_instance.get_pricelog_record(code=element['asx_code'],
-                                                    start_time=element['timestamp']-datetime.timedelta(minutes=30),
-                                                    end_time=element['timestamp']+datetime.timedelta(minutes=30))
-            if query.count() == 0:
-                insert_array.append(element)
-            else:
-                skipped_array.append(element)
+                                                    start_time=min_date,
+                                                    end_time=max_date)
+
+        insert_array = []
+        skipped_array = []
+        time_data = []
+        for data in data_array:
+            time_data.append(data['timestamp'])
+
+        if query.count() > 1:
+            for pricelog_record in query:
+                if pricelog_record.timestamp in time_data:
+                    skipped_array.append(pricelog_record)
+                else:
+                    insert_array.append(pricelog_record)
+
+        print(insert_array)
 
         if len(insert_array) != 0:
             PriceLog.insert_many(insert_array).execute()
