@@ -104,14 +104,13 @@ class DataGrabber():
         decoded_content = download.content.decode('utf-8')
 
         print("%s history read." % code)
-        data_array = []
 
-        # Construct data_array to contain dictionary of price_log data.
+        # Construct csv_data to contain dictionary of price_log data.
         reader = csv.reader(decoded_content.splitlines(), delimiter=',')
         next(reader)
         price_list = list(reader)
 
-
+        csv_data = []
         for row in price_list:
             # Columns are - Date, Open, High, Low, Close, Volume, Adjusted Close
 
@@ -120,40 +119,40 @@ class DataGrabber():
             timestamp = datetime.datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
 
             data = {'asx_code': code, 'price': row[4], 'timestamp': timestamp}
-            data_array.append(data)
+            csv_data.append(data)
 
             # Add in database for the price at open. The time is 10:00:00 AEST -> 00:00:00 UTC
             date_string = row[0] + " 00:00:00"
             timestamp = datetime.datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
 
             data = {'asx_code': code, 'price': row[1], 'timestamp': timestamp}
-            data_array.append(data)
+            csv_data.append(data)
 
-        max_date = data_array[0]['timestamp']
-        min_date = data_array[-1]['timestamp']
+        max_date = csv_data[0]['timestamp'] + datetime.timedelta(days=1)
+        min_date = csv_data[-1]['timestamp'] - datetime.timedelta(days=1)
 
         db_instance = DBConnector()
         print("Connected to database")
 
-        for element in data_array:
+        for element in csv_data:
             query = db_instance.get_pricelog_record(code=element['asx_code'],
                                                     start_time=min_date,
                                                     end_time=max_date)
 
+        time_data = []
+        if query.count() > 1:
+            for query_data in query:
+                time_data.append(query_data.timestamp)
+        else:
+            pass
+
         insert_array = []
         skipped_array = []
-        time_data = []
-        for data in data_array:
-            time_data.append(data['timestamp'])
-
-        if query.count() > 1:
-            for pricelog_record in query:
-                if pricelog_record.timestamp in time_data:
-                    skipped_array.append(pricelog_record)
-                else:
-                    insert_array.append(pricelog_record)
-
-        print(insert_array)
+        for data in csv_data:
+            if data['timestamp'] in time_data:
+                skipped_array.append(data)
+            else:
+                insert_array.append(data)
 
         if len(insert_array) != 0:
             PriceLog.insert_many(insert_array).execute()
