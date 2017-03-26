@@ -1,5 +1,6 @@
 __author__ = 'jason'
 
+
 class TrendLine():
     def __init__(self, xlist, ylist):
         self.xlist = xlist
@@ -11,7 +12,6 @@ class TrendLine():
             self.n = 0
             self.offset = 0
             self.gradient = 0
-            return None
 
         self.n = len(self.xlist)
 
@@ -45,5 +45,5 @@ class TrendLine():
 if __name__ == "__main__":
     x = range(0, 10)
     y = range(0, 20, 2)
-    trendline = TrendLine(asx_code="cba", xlist=x, ylist=y)
+    trendline = TrendLine(xlist=x, ylist=y)
     print(trendline.get_trend_point(15))

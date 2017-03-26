@@ -84,20 +84,10 @@ class DataGrabber():
         return 0
 
     def historic_data_grab(self, code):
-        url_string = "https://au.finance.yahoo.com/q/hp?s=" + code + ".AX"
 
-        page = req.get(url_string)
-        html_source = page.text
+        data_source = DatasourceYahoofinance(asx_code=code)
 
-        soup = BeautifulSoup(html_source, "html.parser")
-        search_id_string = 'rightcol'
-        try:
-            file_url = (soup.find(id=search_id_string)
-                        .find_all('a', href=re.compile('^http://real-chart.finance'))[0].get('href'))
-        except AttributeError:
-            print("Attribute Error: bs4.find() could no1t retrieve text for %s." % code)
-            print("Check the status of the webpage.")
-            return 404
+        file_url = data_source.get_historic_data()
 
         #csv_file = urllib2.urlopen(file_url)
         download = req.get(file_url)

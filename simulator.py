@@ -11,6 +11,7 @@ class Simulator():
     def __init__(self, start_amount, start_date, rules):
         self.current_balance = start_amount
         self.start_date = str_to_date(start_date)
+        self.end_date = datetime.datetime.today()
         self.rules = rules
 
     def sim_run(self):
@@ -24,19 +25,22 @@ class Simulator():
         # 3. The last purchase wasn't within the cooldown period.
         #   3a. The cooldown period is overwritten if the current price is
         #       less than the buy trend line * (1 - pcent_buy_lim)
-        # 4.
+        # 4
+        # .
+        # For each day of the year cycle through the list of stock codes and decide if a purchase should be made.
 
-        bool_buy = True
+        # Populate a dictionary with the data from the
+        bool_buy = False
 
+        for single_date in daterange(self.start_date, self.end_date):
+            pass
 
+        if bool_buy:
+            pass
 
-
-
-
-        pass
-
-    def build_limits(self, asx_code):
-        end_date = datetime.datetime.today()
+    # Packages details into separate csv files for each stock code
+    def build_limits(self):
+        end_date = self.end_date
         query_start_date = str_to_date(self.start_date) - datetime.timedelta(days=self.rules.trend_size)
         data_grabber = DataGrabber()
         db_instance = DBConnector()
@@ -98,18 +102,18 @@ class Simulator():
                     sell_trendline.append((1.0+self.rules.pcent_sell_lim)*trend_value)
             print('Trendlines built, writing to csv.')
 
-            csvfile_name = "trend_data_%s.csv" % asx_code
+            csvfile_name = "trend_data.csv"
             with open(csvfile_name, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile, delimiter=',',
                                     quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                writer.writerow(["Date", "Price", "Trend Point", "Buy Point", "Sell Point"])
+                writer.writerow(["Code", "Date", "Price", "Trend Point", "Buy Point", "Sell Point"])
                 for i in range(0, len(trendline)):
                     price = query_list[i]['price']
                     writer.writerow([date_to_excel(time_range_list[i][0]), price,
                                      trendline[i], buy_trendline[i], sell_trendline[i]])
                 all_data.append({'asx_code': asx_code, 'timestamp': time_range_list[i][0],
-                                'price': price, 'trendline': trendline[i], 'buy_trendline': buy_trendline[i],
-                                'sell_trendline': sell_trendline[i]})
+                                 'price': price, 'trendline': trendline[i], 'buy_trendline': buy_trendline[i],
+                                 'sell_trendline': sell_trendline[i]})
 
             print('%s written/r/n' % csvfile_name)
 
@@ -150,6 +154,12 @@ def date_to_excel(date1):
     temp = datetime.datetime(1899, 12, 30)    # Note, not 31st Dec but 30th!
     delta = date1 - temp
     return float(delta.days) + (float(delta.seconds) / 86400)
+
+def daterange(range_start, range_end):
+    for n in range(int((range_end - range_start).days)):
+        yield range_start + datetime.timedelta(n)
+
+
 
 
 if __name__ == "__main__":
