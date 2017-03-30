@@ -20,9 +20,17 @@ class Simulator():
         self.transactions = {}
 
     def sim_run(self):
+
+        data_grabber = DataGrabber()
+        for asx_code in self.rules.asx_code_list:
+            if self.scrape:
+                # Make sure there is data in the database to build the trendline from.
+                data_grabber.historic_data_grab(asx_code)
+
         all_data = self.build_limits()
 
-        for single_date in daterange(self.start_date, self.end_date):
+        dates_range = daterange(self.start_date, self.end_date)
+        for single_date in dates_range:
             for asx_code in self.rules.asx_code_list:
                 for element in all_data[asx_code]:
                     if element['timestamp'] <= single_date:
@@ -31,6 +39,12 @@ class Simulator():
                 self.sim_buy(date=single_date, asx_code=asx_code, date_data=date_data)
                 self.sim_sell(date=single_date, asx_code=asx_code, date_data=date_data)
 
+        for asx_code in self.rules.asx_code_list:
+            holdings = 0
+            for transaction in self.transactions[asx_code]:
+                holdings += transaction['quantity']
+            print("Stock: %s, %d" % (asx_code, holdings))
+        print(self.current_balance)
 
     def sim_buy(self, date, asx_code, date_data):
         # Conditions:
@@ -59,16 +73,17 @@ class Simulator():
             bool_buy = False
 
         # Condition 3
-        if price <= (buy_price * (1.0 - 2.0*self.rules.pcent_buy_lim)):
-            bool_buy = bool_buy and True
-        else:
-            try:
-                for element in self.transactions[asx_code]:
-                    if (date - datetime.timedelta(days=self.rules.buy_cooldown)) <= element['purchase_date']:
-                        bool_buy = False
-            except KeyError:
-                print("No previous transactions for %s." % asx_code)
-                self.transactions[asx_code] = []
+        cooldown_date = date - datetime.timedelta(days=self.rules.buy_cooldown)
+        #if price <= (buy_price * (1.0 - 2.0*self.rules.pcent_buy_lim)):
+        #    bool_buy = bool_buy and True
+        #else:
+        try:
+            for element in self.transactions[asx_code]:
+                if cooldown_date <= element['purchase_date']:
+                    bool_buy = False
+        except KeyError:
+            print("No previous transactions for %s." % asx_code)
+            self.transactions[asx_code] = []
 
         if bool_buy:
             buy_qty = int((self.rules.buy_unit-(2*self.rules.transaction_cost))/price)
@@ -103,9 +118,10 @@ class Simulator():
             bool_sell = True
 
         # Condition 2
+        profit_multiplier = 1.0 + self.rules.pcent_min_profit
         try:
             for index, element in enumerate(self.transactions[asx_code]):
-                if sell_price > element['unit_price']*(1.0 + self.rules.pcent_min_profit):
+                if sell_price > element['unit_price']*profit_multiplier:
                     temp_bool_sell = True
                     break
                 else:
@@ -124,16 +140,12 @@ class Simulator():
     def build_limits(self):
         end_date = self.end_date
         query_start_date = str_to_date(self.start_date) - datetime.timedelta(days=self.rules.trend_size)
-        data_grabber = DataGrabber()
+
         db_instance = DBConnector()
 
         all_data = {}
         for asx_code in self.rules.asx_code_list:
             code_data = []
-
-            if self.scrape:
-                # Make sure there is data in the database to build the trendline from.
-                data_grabber.historic_data_grab(asx_code)
 
             query = db_instance.\
                 get_pricelog_record(code=asx_code,
@@ -193,28 +205,27 @@ class Simulator():
     def build_time_range(self, query_list):
         time_range_list = []
         time_index_range_list = []
-        print(len(query_list))
-        for i in range(0, len(query_list)):
-            for j in range(i, len(query_list)):
-                if query_list[j]['timestamp'] >=\
-                        query_list[i]['timestamp'] -\
-                        datetime.timedelta(days=(self.rules.trend_size+1)):
+        query_list_len = len(query_list)
+        trend_size = datetime.timedelta(days=(self.rules.trend_size+1))
+        for i in range(0, query_list_len):
+            for j in range(i, query_list_len):
+                timestamp_a = query_list[j]['timestamp']
+                timestamp_b = query_list[i]['timestamp']
+                if timestamp_a >= timestamp_b - trend_size:
                     try:
-                        time_range_list[i] = [query_list[i]['timestamp'], query_list[j]['timestamp']]
+                        time_range_list[i] = [timestamp_b, timestamp_a]
                         time_index_range_list[i] = [i, j]
                     except IndexError:
-                        time_range_list.append([query_list[i]['timestamp'], query_list[j]['timestamp']])
+                        time_range_list.append([timestamp_b, timestamp_a])
                         time_index_range_list.append([i, j])
-                if query_list[j]['timestamp'] <\
-                        query_list[i]['timestamp'] -\
-                        datetime.timedelta(days=(self.rules.trend_size+1)):
+                if timestamp_b < timestamp_a - trend_size:
                     break
         return time_range_list, time_index_range_list
 
 
 class Rules():
     def __init__(self, asx_code_list=None, pcent_sell_lim=0.04, pcent_buy_lim=0.04,
-                 buy_cooldown=15, buy_unit=4000, trend_size=120, pcent_min_profit=0.04,
+                 buy_cooldown=45, buy_unit=4000, trend_size=120, pcent_min_profit=0.04,
                  transaction_cost=20):
 
         if asx_code_list is None:
@@ -274,7 +285,7 @@ if __name__ == "__main__":
 
 
     rules = Rules(asx_code_list=code_list[:10])
-    sim = Simulator(start_amount=100000, start_date="2000-01-01", rules=rules)
+    sim = Simulator(start_amount=1000000, start_date="2000-01-01", rules=rules)
     #sim = Simulator(start_amount=40000, start_date="2017-01-01", rules=rules)
 
     sim.sim_run()
