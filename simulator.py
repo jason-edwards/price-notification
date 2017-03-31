@@ -13,7 +13,7 @@ class Simulator():
         self.start_date = str_to_date(start_date)
         self.end_date = datetime.datetime.today()
         self.rules = rules
-        self.scrape = False
+        self.scrape = scrape
 
         # Format:
         # {asx_code : [{purchase date, qty, unit price}]}
@@ -21,6 +21,7 @@ class Simulator():
 
     def sim_run(self):
 
+        days_in_sec = 60*60*24
         data_grabber = DataGrabber()
         for asx_code in self.rules.asx_code_list:
             if self.scrape:
@@ -29,8 +30,9 @@ class Simulator():
 
         all_data = self.build_limits()
 
-        dates_range = daterange(self.start_date, self.end_date)
-        for single_date in dates_range:
+        print("Starting simulation.")
+
+        for single_date in range(date_to_int(self.start_date), date_to_int(self.end_date), days_in_sec):
             for asx_code in self.rules.asx_code_list:
                 for element in all_data[asx_code]:
                     if element['timestamp'] <= single_date:
@@ -41,8 +43,12 @@ class Simulator():
 
         for asx_code in self.rules.asx_code_list:
             holdings = 0
-            for transaction in self.transactions[asx_code]:
-                holdings += transaction['quantity']
+            try:
+                for transaction in self.transactions[asx_code]:
+                    holdings += transaction['quantity']
+            except KeyError:
+                pass
+
             print("Stock: %s, %d" % (asx_code, holdings))
         print(self.current_balance)
 
@@ -58,6 +64,7 @@ class Simulator():
         # For each day of the year cycle through the list of stock codes and decide if a purchase should be made.
 
         bool_buy = False
+        days_in_sec = 60*60*24
 
         price = date_data['price']
         buy_price = date_data['buy_trendline']
@@ -73,7 +80,7 @@ class Simulator():
             bool_buy = False
 
         # Condition 3
-        cooldown_date = date - datetime.timedelta(days=self.rules.buy_cooldown)
+        cooldown_date = date - self.rules.buy_cooldown*days_in_sec
         #if price <= (buy_price * (1.0 - 2.0*self.rules.pcent_buy_lim)):
         #    bool_buy = bool_buy and True
         #else:
@@ -110,6 +117,7 @@ class Simulator():
         bool_sell = False
         temp_bool_sell = False
 
+
         price = date_data['price']
         sell_price = date_data['sell_trendline']
 
@@ -134,7 +142,7 @@ class Simulator():
         if bool_sell:
             item = self.transactions[asx_code].pop(index)
             print("SELL:", asx_code, date, price, element['purchase_date'], element['unit_price'])
-            self.current_balance += item['quantity']*item['unit_price']
+            self.current_balance += item['quantity']*price
 
     # Packages details into separate csv files for each stock code
     def build_limits(self):
@@ -156,13 +164,15 @@ class Simulator():
             buy_trendline = []
             sell_trendline = []
             query_list = []
-            print('Sorting data for %s' % asx_code)
+            print('Building query for %s' % asx_code)
             # Loop through data points from self.start_date to the end_date.
             # For each of these data points, calculate a trendline and corresponding trend point.
             for data_point in query:
                 query_list.append({'asx_code': data_point.asx_code,
-                                   'price': data_point.price,
-                                   'timestamp': data_point.timestamp})
+                                   'price': float(data_point.price),
+                                   'timestamp': date_to_int(data_point.timestamp)})
+
+            print('Building date range for %s' % asx_code)
 
             time_range_list, time_index_range_list = self.build_time_range(query_list)
 
@@ -174,11 +184,11 @@ class Simulator():
                 date_list = []
                 price_list = []
                 for trend_data_point in trend_query:
-                    date_list.append(date_to_int(trend_data_point['timestamp']))
+                    date_list.append(trend_data_point['timestamp'])
                     price_list.append(trend_data_point['price'])
                 if len(trend_query) > 0:
                     trend_value = TrendLine(date_list, price_list).\
-                        get_trend_point(date_to_int(trend_query[0]['timestamp']))
+                        get_trend_point(trend_query[0]['timestamp'])
                     trendline.append(trend_value)
                     buy_trendline.append((1.0-self.rules.pcent_buy_lim)*trend_value)
                     sell_trendline.append((1.0+self.rules.pcent_sell_lim)*trend_value)
@@ -191,7 +201,7 @@ class Simulator():
                 writer.writerow(["Code", "Date", "Price", "Trend Point", "Buy Point", "Sell Point"])
                 for i in range(0, len(trendline)):
                     price = query_list[i]['price']
-                    writer.writerow([asx_code, date_to_excel(time_range_list[i][0]), price,
+                    writer.writerow([asx_code, int_to_excel(time_range_list[i][0]), price,
                                      trendline[i], buy_trendline[i], sell_trendline[i]])
                     code_data.append({'timestamp': time_range_list[i][0], 'price': price,
                                       'trendline': trendline[i], 'buy_trendline': buy_trendline[i],
@@ -206,26 +216,31 @@ class Simulator():
         time_range_list = []
         time_index_range_list = []
         query_list_len = len(query_list)
-        trend_size = datetime.timedelta(days=(self.rules.trend_size+1))
+        trend_size = (self.rules.trend_size+1)*60*60*24
         for i in range(0, query_list_len):
             for j in range(i, query_list_len):
-                timestamp_a = query_list[j]['timestamp']
-                timestamp_b = query_list[i]['timestamp']
-                if timestamp_a >= timestamp_b - trend_size:
+                timestamp_data_point = query_list[i]['timestamp']
+                timestamp_comparator = query_list[j]['timestamp']
+                timestamp_min = timestamp_data_point - trend_size
+
+                if timestamp_comparator >= timestamp_min:
                     try:
-                        time_range_list[i] = [timestamp_b, timestamp_a]
+                        time_range_list[i] = [timestamp_comparator, timestamp_data_point]
                         time_index_range_list[i] = [i, j]
                     except IndexError:
-                        time_range_list.append([timestamp_b, timestamp_a])
+                        time_range_list.append([timestamp_comparator, timestamp_data_point])
                         time_index_range_list.append([i, j])
-                if timestamp_b < timestamp_a - trend_size:
+                if timestamp_comparator < timestamp_min:
                     break
+
         return time_range_list, time_index_range_list
 
 
+
+
 class Rules():
-    def __init__(self, asx_code_list=None, pcent_sell_lim=0.04, pcent_buy_lim=0.04,
-                 buy_cooldown=45, buy_unit=4000, trend_size=120, pcent_min_profit=0.04,
+    def __init__(self, asx_code_list=None, pcent_sell_lim=0.05, pcent_buy_lim=0.05,
+                 buy_cooldown=90, buy_unit=4000, trend_size=120, pcent_min_profit=0.07,
                  transaction_cost=20):
 
         if asx_code_list is None:
@@ -251,16 +266,35 @@ def str_to_date(time_value):
     return time_value
 
 
+# Returns a date (str or datetime) as seconds, the reverse of this is datetime.datetime.fromtimestamp(timestamp)
 def date_to_int(time_value):
     time_value = str_to_date(time_value)
     time_tpl = time_value.timetuple()
-    return time.mktime(time_tpl)
+    return int(time.mktime(time_tpl))
 
 
 def date_to_excel(date1):
-    temp = datetime.datetime(1899, 12, 30)    # Note, not 31st Dec but 30th!
+    if type(date1) is not datetime:
+        try:
+            date1 = datetime.datetime.strptime(date1, "%Y-%m-%d")
+        except TypeError:
+            date1 = date1.replace(hour=0, minute=0, second=0, microsecond=0)
+    # temp = datetime.datetime(1899, 12, 30)    # Note, not 31st Dec but 30th!
+    temp = datetime.datetime(1904, 1, 1)
+
     delta = date1 - temp
     return float(delta.days) + (float(delta.seconds) / 86400)
+
+
+def int_to_excel(date1):
+    date_str = "2000-01-01"
+    date_str1 = "2000-01-02"
+    time_scaler = (date_to_int(date_str) - date_to_int(date_str1)) /\
+                  (date_to_excel(date_str) - date_to_excel(date_str1))
+
+    time_delta = date_to_int(date_str)/time_scaler - date_to_excel(date_str)
+    time_value = date1/time_scaler - time_delta
+    return time_value
 
 
 # Creates a range of days
@@ -282,10 +316,11 @@ if __name__ == "__main__":
     for code in file_list:
         code_list.append(code[0])
 
+    rules = Rules(asx_code_list=code_list)
+#    rules = Rules(asx_code_list=code_list)
 
+    #sim = Simulator(start_amount=1000000, start_date="2000-01-01", rules=rules, scrape=True)
+    sim = Simulator(start_amount=100000, start_date="2000-01-01", rules=rules)
 
-    rules = Rules(asx_code_list=code_list[:10])
-    sim = Simulator(start_amount=1000000, start_date="2000-01-01", rules=rules)
-    #sim = Simulator(start_amount=40000, start_date="2017-01-01", rules=rules)
-
+#    sim = Simulator(start_amount=40000, start_date="2017-01-01", rules=rules)
     sim.sim_run()
