@@ -47,8 +47,8 @@ class DataGrabber():
         data_grabber.cleanup()
 
     def data_grab(self, code):
-        start_time = time()
 
+        start_time = time()
         url_container_list = [DataSourceASX(asx_code=code), DatasourceYahoofinance(asx_code=code)]
         print("In data_grab")
         for url_container in url_container_list:
@@ -61,6 +61,7 @@ class DataGrabber():
             except LookupError as e:
                 print("Failed to query a URL: %s" % (e))
                 continue
+        url_container.clean_up()
 
         request_time = time() - start_time
         print("\tTook %.2f seconds to get response." % request_time)
@@ -74,10 +75,11 @@ class DataGrabber():
         )
 
         try:
-            price_log.save()
+            PriceLog.save(price_log)
         except Exception as e:
             print(e)
             print("\tError saving to database.")
+
 
         finish_time = time() - start_time
         print("\tSaved in database. Total time: %.2f" % finish_time)
@@ -104,19 +106,19 @@ class DataGrabber():
         for row in price_list:
             # Columns are - Date, Open, High, Low, Close, Volume, Adjusted Close
 
-            # Add in database for the price at close. The time is 16:00:00 AEST -> 06:00:00 UTC
-            date_string = row[0] + " 06:00:00"
+            # Add in database for the price at adjusted close. The time is 16:00:00 AEST -> 06:00:00 UTC
+            date_string = row[0] + " 16:00:00"
             timestamp = datetime.datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
 
-            data = {'asx_code': code, 'price': row[4], 'timestamp': timestamp}
+            data = {'asx_code': code, 'price': row[6], 'timestamp': timestamp}
             csv_data.append(data)
-
+#
             # Add in database for the price at open. The time is 10:00:00 AEST -> 00:00:00 UTC
-            date_string = row[0] + " 00:00:00"
-            timestamp = datetime.datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
-
-            data = {'asx_code': code, 'price': row[1], 'timestamp': timestamp}
-            csv_data.append(data)
+#            date_string = row[0] + " 10:00:00"
+#            timestamp = datetime.datetime.strptime(date_string, "%Y-%m-%d %H:%M:%S")
+#
+#            data = {'asx_code': code, 'price': row[1], 'timestamp': timestamp}
+#            csv_data.append(data)
 
         max_date = csv_data[0]['timestamp'] + datetime.timedelta(days=1)
         min_date = csv_data[-1]['timestamp'] - datetime.timedelta(days=1)

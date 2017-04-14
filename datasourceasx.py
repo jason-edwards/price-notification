@@ -10,14 +10,14 @@ class DataSourceASX(DataSource):
     def get_price(self):
         url = "http://search.asx.com.au/s/search.html?query=%s&collection=asx-meta&profile=web" % self.asx_code
 
+        self.browser.get(url)
         soup = self._get_soup(url=url)
 
         try:
-
             prices_table = soup.find("table").find("tbody")
             current_price = prices_table.find_all("td")[0].get_text()
         except AttributeError:
-            print("\tUnable to scrape this time.")
+            print("\tUnable to scrape ASX.com this time.")
             return None
 
         return current_price

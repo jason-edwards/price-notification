@@ -15,11 +15,26 @@ class DatasourceYahoofinance(DataSource):
         DataSource.__init__(self, asx_code=asx_code, javascript=True)
 
     def get_price(self):
-        url = "https://au.finance.yahoo.com/q/pr?s=%s.AX" % self.asx_code
+
+        return None
+
+        url = "https://au.finance.yahoo.com/quote/%s.AX/" % self.asx_code
+
+        self.browser.get(url)
+
+        WebDriverWait(self.browser, 20).until(
+            EC.presence_of_element_located((By.ID, "defaultLREC-wrapper")))
 
         soup = self._get_soup(url=url)
-        search_id_string = "yfs_l84_%s.ax" % self.asx_code
-        current_price = soup.find(id=search_id_string).get_text()
+
+
+        try:
+            # search_id_string = "yfs_l84_%s.ax" % self.asx_code
+            print(soup.title.get_text())
+            current_price = soup.find(attrs={"data-reactid": "259"}).get_text()
+        except AttributeError:
+            print("\tUnable to scrape YahooFinance.com this time.")
+            return None
 
         return current_price
 
@@ -37,7 +52,7 @@ class DatasourceYahoofinance(DataSource):
         url = self.browser.current_url
         print(url)
 
-        WebDriverWait(self.browser, 10).until(
+        WebDriverWait(self.browser, 20).until(
             EC.presence_of_element_located((By.XPATH, "//a[starts-with(@href, 'http://chart.finance.yahoo.com/table.csv')]")))
 
         soup = self._get_soup(url=url)
@@ -49,6 +64,8 @@ class DatasourceYahoofinance(DataSource):
             print("Attribute Error: bs4.find() could no1t retrieve text for %s." % self.asx_code)
             print("Check the status of the web page.")
             return None
+        except TimeoutError:
+            return False
 
         return file_url
 
