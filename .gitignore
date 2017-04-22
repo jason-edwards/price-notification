@@ -61,8 +61,12 @@ docs/_build/
 # PyBuilder
 target/
 
-# CSV Data files
+# Data files
 *.csv
+*.xls
+*.xlsx
+
+*.sh
 
 
 # Created by .ignore support plugin (hsz.mobi)

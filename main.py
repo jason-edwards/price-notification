@@ -51,6 +51,7 @@ class MyDaemon(Daemon):
 
 
 def decision_maker():
+    # with open(PATH +'asx_code_list_full.csv', 'r') as f:
     with open(PATH +'asx_code_list.csv', 'r') as f:
         reader = csv.reader(f)
         file_list = list(reader)
@@ -60,17 +61,18 @@ def decision_maker():
         code_list.append(code[0])
 
     code_list = code_list
+    code_list = ["BHP", "CBA", "TLS", "WOW", "WBC", "ANZ"]
 
-    decision_data_grabber = DataGrabber()
+    # decision_data_grabber = DataGrabber()
 
-    for code in code_list:
-        decision_data_grabber.data_grab(code)
+    # for code in code_list:
+    #    decision_data_grabber.data_grab(code)
 
     # rules = Rules(asx_code_list=code_list)
     rules = Rules(asx_code_list=code_list)
 
     datetime_today = datetime.datetime.today()
-    str_today = datetime_today.strftime("%Y-%m-%d %H:%M:%S")
+    str_today = datetime_today.strftime("%d/%m/%y %H:%M")
     today = date_to_int(datetime_today)
 
     with open(PATH + 'Holdings.csv', 'r') as f:
@@ -96,8 +98,9 @@ def decision_maker():
             except KeyError:
                 transactions[asx_code] = [{'purchase_date': date, 'quantity': buy_qty,
                                            'unit_price': equiv_price}]
+    balance = float(line[9])
 
-    sim = Simulator(start_amount=100000, start_date="1997-01-01", rules=rules, scrape=False, transactions=transactions)
+    sim = Simulator(start_amount=balance, start_date="1997-01-01", rules=rules, scrape=False, transactions=transactions)
 
     db_instance = DBConnector()
     query = db_instance.get_max_date_records()
@@ -114,13 +117,7 @@ def decision_maker():
         writer.writerow(["Action", "Code", "Action Date", "Action Qty", "Action Price", "Price Limit",
                          "Cur. Price", "Buy Date", "Buy Price", "Balance"])
         for line in file_list[1:]:
-            action = line[0]
-            asx_code = line[1]
-            date = date_to_int(line[2])
-            buy_qty = line[3]
-            equiv_price = line[4]
-            writer.writerow([action, asx_code, int_to_excel(date), buy_qty, equiv_price, 0,
-                             0, 0, 0, 0])
+            writer.writerow(line)
         csvfile.close()
 
     for asx_code in sim.rules.asx_code_list:

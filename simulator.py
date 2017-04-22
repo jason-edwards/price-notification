@@ -25,8 +25,8 @@ class Simulator():
             self.transactions = {}
         else:
             self.transactions = transactions
-    def sim_run(self):
 
+    def sim_run(self):
         days_in_sec = 60*60*24
 
         if self.scrape:
@@ -95,8 +95,16 @@ class Simulator():
         price = code_data['price']
         buy_price = code_data['buy_trendline']
 
+        if self.current_balance < self.rules.buy_unit_override_price:
+            buy_qty = int((self.rules.buy_unit-(2*self.rules.transaction_cost))/price)
+        else:
+            buy_qty = int((self.current_balance*self.rules.pcent_buy_unit-(2*self.rules.transaction_cost))/price)
+
+        equiv_price = float(round((price*buy_qty+2*self.rules.transaction_cost)/buy_qty, 10))
+
+
         # Condition 1
-        if price <= buy_price:
+        if equiv_price <= buy_price:
             bool_buy = True
 
         # Condition 2 ($40 in account for transactions)
@@ -115,16 +123,10 @@ class Simulator():
                 if cooldown_date <= element['purchase_date']:
                     bool_buy = False
         except KeyError:
-            print("No previous transactions for %s." % asx_code)
+            # print("No previous transactions for %s." % asx_code)
             self.transactions[asx_code] = []
 
         if bool_buy:
-            if self.current_balance < self.rules.buy_unit_override_price:
-                buy_qty = int((self.rules.buy_unit-(2*self.rules.transaction_cost))/price)
-            else:
-                buy_qty = int((self.current_balance*self.rules.pcent_buy_unit-(2*self.rules.transaction_cost))/price)
-
-            equiv_price = float(round((price*buy_qty+2*self.rules.transaction_cost)/buy_qty, 10))
             self.current_balance -= equiv_price*buy_qty
 
             try:
@@ -174,12 +176,15 @@ class Simulator():
                     break
                 else:
                     temp_bool_sell = False
+            buy_date = element['purchase_date']
+            buy_price = element['unit_price']
         except KeyError:
-            print("No current holdings for %s." % asx_code)
+            # print("No current holdings for %s." % asx_code)
+            return None
+        except UnboundLocalError:
+            # print("No current holdings for %s." % asx_code)
             return None
 
-        buy_date = int_to_excel(element['purchase_date'])
-        buy_price = element['unit_price']
         bool_sell = temp_bool_sell and bool_sell
 
         if bool_sell:
@@ -187,33 +192,40 @@ class Simulator():
             data = self.sell(sell_details)
             return data
         else:
-            pcent_profit = (sell_price - buy_price)/buy_price
-            if ((date - buy_date) <= days_in_sec*31) & (pcent_profit > self.rules.pcent_min_profit-0.02):
+            for index, element in enumerate(self.transactions[asx_code]):
+                buy_date = element['purchase_date']
+                buy_price = element['unit_price']
+                pcent_profit = (price - buy_price)/buy_price
+                if ((date - buy_date) <= days_in_sec*31*2) & (pcent_profit > 0.03):
                     sell_details = [asx_code, date, price, index, element, sell_price]
                     data = self.sell(sell_details)
                     return data
+                if price > sell_price:
+                    if (date - buy_date) > days_in_sec*365:
+                        bisect_date = buy_date + (date - buy_date)/2  # Bisection between the current date and the buy date
+                        # dt_bisect_date = datetime.datetime.fromtimestamp(bisect_date)
+                        # dt_date = datetime.datetime.fromtimestamp(date)
+                        # dt_buy_date = datetime.datetime.fromtimestamp(buy_date)
+                        db_instance = DBConnector()
+                        query = db_instance.\
+                            get_pricelog_record(code=asx_code,
+                                                start_time=datetime.datetime.fromtimestamp(bisect_date),
+                                                end_time=datetime.datetime.fromtimestamp(date))
+                        query_len = len(query)
+                        date_list = [None]*query_len
+                        price_list = [None]*query_len
 
-            if (date - buy_date) > days_in_sec*365:
-                bisect_date = buy_date + (date - buy_date)/2  # Bisection between the current date and the buy date
-                db_instance = DBConnector()
-                query = db_instance.\
-                    get_pricelog_record(code=asx_code,
-                                        start_time=datetime.datetime.fromtimestamp(bisect_date),
-                                        end_time=datetime.datetime.fromtimestamp(date))
-                query_len = len(query)
-                date_list = [None]*query_len
-                price_list = [None]*query_len
-                print('Building sell query for %s' % asx_code)
-                for i in range(query_len):
-                    data_point = query[i]
-                    date_list[i] = date_to_int(data_point.timestamp)
-                    price_list[i] = float(data_point.price),
+                        for i in range(query_len):
+                            data_point = query[i]
+                            date_list[i] = date_to_int(data_point.timestamp)
+                            price_list[i] = float(data_point.price)
 
-                trend = TrendLine(date_list, price_list)
-                if trend.gradient < 0:
-                    sell_details = [asx_code, date, price, index, element, sell_price]
-                    data = self.sell(sell_details)
-                    return data
+                        trend = TrendLine(date_list, price_list)
+                        # print(dt_date, trend.gradient, '%s' % asx_code)
+                        if trend.gradient < 0:
+                            sell_details = [asx_code, date, price, index, element, sell_price]
+                            data = self.sell(sell_details)
+                            return data
             return None
 
     def sell(self, sell_details):
@@ -237,6 +249,7 @@ class Simulator():
         buy_date = int_to_excel(element['purchase_date'])
         print("SELL:", asx_code, date, price, buy_date, buy_price)
         self.current_balance += sell_qty*price
+        print(datetime.datetime.fromtimestamp(date), self.current_balance)
 
         with open(PATH + 'transactions.csv', 'a', newline='') as fp:
             a = csv.writer(fp, delimiter=',')
@@ -340,9 +353,9 @@ class Simulator():
 
 
 class Rules():
-    def __init__(self, asx_code_list=None, pcent_sell_lim=0.05, pcent_buy_lim=0.05,
-                 buy_cooldown=90, buy_unit=4000, trend_size=120, pcent_min_profit=0.05,
-                 transaction_cost=20, buy_unit_override_price=400000, pcent_buy_unit=0.01):
+    def __init__(self, asx_code_list=None, pcent_sell_lim=0.04, pcent_buy_lim=0.04,
+                 buy_cooldown=150, buy_unit=10000.0, trend_size=12, pcent_min_profit=0.07,
+                 transaction_cost=20, buy_unit_override_price=250000.0, pcent_buy_unit=0.04):
 
         if asx_code_list is None:
             self.asx_code_list = ["cba"]
@@ -365,7 +378,10 @@ def str_to_date(time_value):
         try:
             time_value = datetime.datetime.strptime(time_value, "%Y-%m-%d %H:%M:%S")
         except ValueError:
-            time_value = datetime.datetime.strptime(time_value, "%Y-%m-%d")
+            try:
+                time_value = datetime.datetime.strptime(time_value, "%Y-%m-%d")
+            except ValueError:
+                time_value = datetime.datetime.strptime(time_value, "%d/%m/%y %H:%M")
         except TypeError:
             pass
     return time_value
@@ -390,7 +406,7 @@ def date_to_excel(date1):
     temp = datetime.datetime(1904, 1, 1)
 
     delta = date1 - temp
-    return float(delta.days) + (float(delta.seconds) / 86400)
+    return float(delta.days) + (float(delta.seconds) / 60*60*24)
 
 
 def int_to_excel(date1):
@@ -408,6 +424,7 @@ def int_to_excel(date1):
 def daterange(range_start, range_end):
     for n in range(int((range_end - range_start).days)):
         yield range_start + datetime.timedelta(days=n)
+
 
 def sim_tester():
     with open(PATH + 'asx_code_list.csv', 'r') as f:
@@ -436,6 +453,7 @@ def sim_tester():
 if __name__ == "__main__":
 
     with open(PATH + 'asx_code_list.csv', 'r') as f:
+    # with open(PATH + 'asx_code_list_full.csv', 'r') as f:
         reader = csv.reader(f)
         file_list = list(reader)
 
@@ -447,12 +465,12 @@ if __name__ == "__main__":
     # code_list = ['wow']
     # code_list = ['cba']
     # code_list = ['ozl']
-
+    # code_list = ["BHP", "CBA", "TLS", "WOW", "WBC", "ANZ"]
 
     # rules = Rules(asx_code_list=code_list)
     rules = Rules(asx_code_list=code_list)
 
-    sim = Simulator(start_amount=100000, start_date="1997-01-01", rules=rules, scrape=True)
+    sim = Simulator(start_amount=100000, start_date="1997-01-01", rules=rules, scrape=False)
     # sim = Simulator(start_amount=100000, start_date="2000-01-01", rules=rules)
 
     # sim = Simulator(start_amount=40000, start_date="2017-01-01", rules=rules)
