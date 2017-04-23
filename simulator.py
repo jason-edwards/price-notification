@@ -354,7 +354,7 @@ class Simulator():
 
 class Rules():
     def __init__(self, asx_code_list=None, pcent_sell_lim=0.04, pcent_buy_lim=0.04,
-                 buy_cooldown=150, buy_unit=10000.0, trend_size=12, pcent_min_profit=0.07,
+                 buy_cooldown=150, buy_unit=10000.0, trend_size=15, pcent_min_profit=0.07,
                  transaction_cost=20, buy_unit_override_price=250000.0, pcent_buy_unit=0.04):
 
         if asx_code_list is None:
